@@ -1,0 +1,5 @@
+[
+    { "keys": ["ctrl+shift+l", "ctrl+shift+s", "ctrl+shift+d"], "command": "highlime_get_high" },
+    { "keys": ["ctrl+shift+y", "ctrl+shift+w", "ctrl+shift+n"], "command": "highlime_pause" },
+    { "keys": ["ctrl+shift+c", "ctrl+shift+o", "ctrl+shift+p"], "command": "highlime_reset" }
+]

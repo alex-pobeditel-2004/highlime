@@ -1,0 +1,14 @@
+[
+    {
+        "caption": "Highlime: Get high",
+        "command": "highlime_get_high"
+    },
+    {
+        "caption": "Highlime: Take a nap",
+        "command": "highlime_pause"
+    },
+    {
+        "caption": "Highlime: Guys I'm sober",
+        "command": "highlime_reset"
+    }
+]

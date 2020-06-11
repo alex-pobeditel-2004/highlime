@@ -1,0 +1,9 @@
+{
+    // color_iteration_step must be a number between 0 and 1 - it changes Hue in HLS color scheme (1 stands for 360 degrees)
+    // Values of range 0.001 ... 0.002 are recommended for the most smooth experience 
+    "color_iteration_step": 0.0015,
+    // time_iteration_step must be a number of seconds to wait between every color scheme saving iteration
+    // The least recommended value for SSD drives is 0.2
+    // With less values color scheme can be read by ST before it was fully written - that can cause errors
+    "time_iteration_step": 0.2
+}

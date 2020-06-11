@@ -9,24 +9,98 @@ import re
 import threading
 import time
 
+PLUGIN_ACTIVATED = False
+CHANGES_CLEARED = False
 
-class HighlimeCommand(sublime_plugin.TextCommand):
 
-    def run(self, edit):
-        settings = sublime.load_settings('Preferences.sublime-settings')
+# Listener to stop the plugin when requested:
+class HighlimePauseCommandListener(sublime_plugin.EventListener):
+
+    def on_post_text_command(self, view, command_name, args):
+        if command_name == 'highlime_pause':
+            global PLUGIN_ACTIVATED
+            PLUGIN_ACTIVATED = False
+
+
+class HighlimeBaseCommand(sublime_plugin.TextCommand):
+    def __init__(self, view):
+        self.view = view
+
+        global_settings = sublime.load_settings('Preferences.sublime-settings')
 
         # Initialize scheme paths:
-        self.original_scheme_path = settings.get('color_scheme')
-        # Create "unique" name for modified color scheme:
-        original_scheme_name = os.path.split(self.original_scheme_path)[-1]
+        self.original_scheme_path = global_settings.get('color_scheme')
+        original_scheme_name = self.original_scheme_path.split('/')[-1]
         self.new_scheme_abs_path = os.path.join(sublime.packages_path(), 'User', original_scheme_name)
-        self.new_scheme_rel_path = os.path.join('Packages', 'User', original_scheme_name)
+        self.new_scheme_rel_path = '/'.join(('Packages', 'User', original_scheme_name))
 
         # If modified scheme was already created then just continue to work with it:
         if os.path.isfile(self.new_scheme_abs_path):
             self.original_scheme_path = self.new_scheme_rel_path
 
-        # Theme compatibility check:
+        plugin_settings = sublime.load_settings('Highlime.sublime-settings')
+        self.color_step = plugin_settings.get('color_iteration_step', 0.0015)
+        self.time_step = plugin_settings.get('time_iteration_step', 0.2)
+
+
+# Command to signalize that we want to stop the plugin:
+class HighlimePauseCommand(HighlimeBaseCommand):
+
+    def is_enabled(self):
+        """
+        Disables or enables the command
+        """
+        if PLUGIN_ACTIVATED:
+            return True
+        else:
+            return False
+
+    def run(self, edit):
+        print('Highlime paused')
+
+
+# Command to signalize that we want to revert color scheme changes made by the plugin:
+class HighlimeResetCommand(HighlimeBaseCommand):
+
+    def is_enabled(self):
+        """
+        Disables or enables the command
+        """
+        if not PLUGIN_ACTIVATED and CHANGES_CLEARED:
+            return True
+        else:
+            return False
+
+    def run(self, edit):
+        # Remove changed schema file and reload settings:
+
+        with open(self.new_scheme_abs_path, 'w', encoding='utf-8') as new_scheme_file:
+            new_scheme_file.write('{}')
+        sublime.load_settings('Preferences.sublime-settings')
+
+        print('Highlime stopped and reverted color scheme changes')
+        global PLUGIN_ACTIVATED
+        PLUGIN_ACTIVATED = False
+
+        global CHANGES_CLEARED
+        CHANGES_CLEARED = True
+
+
+class HighlimeGetHighCommand(HighlimeBaseCommand):
+
+    def is_enabled(self):
+        """
+        Disables or enables the command
+        """
+        if PLUGIN_ACTIVATED:
+            return False
+        else:
+            return True
+
+    def run(self, edit):
+        # TODO
+        #sublime_plugin.reload_plugin('Highlime')
+        # Color scheme compatibility check:
         if os.path.splitext(self.original_scheme_path)[1].lower() != '.sublime-color-scheme':
             sublime.error_message("You won't get high with {}\n"
                                   "Only .sublime-color-scheme format is supported".format(self.original_scheme_path))
@@ -37,21 +111,17 @@ class HighlimeCommand(sublime_plugin.TextCommand):
                                   'your build {} is too old'.format(sublime.version()))
             return False
 
-        # # If customized file exists (plugin was disabled), exit:
-        # if os.path.isfile(self.new_scheme_abs_path):
-        #     # Revert everything and exit:
-        #     self.revert()
-        #     return True
-
         original_scheme = self.create_color_scheme()
         if not original_scheme:
             return False
 
+        global PLUGIN_ACTIVATED
+        PLUGIN_ACTIVATED = True
+        print('Highlime started')
+
         bg_thread = threading.Thread(target=self.make_high, args=(original_scheme,))
         bg_thread.start()
-        # bg_thread.join()
 
-        # self.make_high(original_scheme)
 
     def create_color_scheme(self):
         """
@@ -59,7 +129,12 @@ class HighlimeCommand(sublime_plugin.TextCommand):
         :return: Paths to the created color scheme
         """
         # Save original scheme at the beginning:
-        original_scheme = sublime.load_resource(self.original_scheme_path)
+        try:
+            original_scheme = sublime.load_resource(self.original_scheme_path)
+        except IOError:
+            sublime.error_message('Failed to load current color scheme.\n'
+                                  'Please, select your color scheme again and retry')
+            return False
 
         # Write original scheme to the new file:
         try:
@@ -103,29 +178,27 @@ class HighlimeCommand(sublime_plugin.TextCommand):
                         else:
                             init_colors[section][item] = item_color
 
-        for i in range(1000):
+        while True:
+
+            # Checking for plugin stop event:
+            if not PLUGIN_ACTIVATED:
+                break
+
             result = dict()
             for section in sections:
                 result[section] = dict()
+                # Iterating through every color we've parsed and changing it    :
                 for item in init_colors[section]:
-                    init_colors[section][item] = iter_color(init_colors[section][item], 0.001)
+                    init_colors[section][item] = iter_color(init_colors[section][item], self.color_step)
                     result[section][item] = represent_hsla_as_function(init_colors[section][item])
             original_scheme_json.update(result)
             with open(self.new_scheme_abs_path, 'w', encoding='utf-8') as new_scheme_file:
                 json.dump(original_scheme_json, new_scheme_file)
 
             sublime.load_settings('Preferences.sublime-settings')
-            time.sleep(0.2)
+            time.sleep(self.time_step)
 
         return True
-
-    def revert(self):
-        """
-        Plugin teardown - fall back to the initial color scheme
-        :return:
-        """
-        self.view.settings().set('color_scheme', self.original_scheme_path)
-        os.remove(self.new_scheme_abs_path)
 
 
 def parse_color(initial_color):

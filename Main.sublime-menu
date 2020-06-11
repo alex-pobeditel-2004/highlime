@@ -1,0 +1,68 @@
+[
+    {
+        "id": "view",
+        "caption": "View",
+        "children":
+        [
+            {"caption": "-", "id": "highlime"},
+            {
+                "id": "toggle_highlime",
+                "caption": "Highlime",
+                "children":
+                [
+                    {
+                        "caption": "Get high",
+                        "command": "highlime_get_high"
+                    },
+                    {
+                        "caption": "Take a nap",
+                        "command": "highlime_pause"
+                    },
+                    {
+                        "caption": "Guys I'm sober",
+                        "command": "highlime_reset"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "caption": "Preferences",
+        "id": "preferences",
+        "children":
+        [
+            {
+                "caption": "Package Settings",
+                "id": "package-settings",
+                "children":
+                [
+                    {
+                        "id": "highlime_preferences",
+                        "caption": "Highlime",
+                        "children":
+                        [
+                            {
+                                "command": "edit_settings",
+                                "args":
+                                    {
+                                        "base_file": "${packages}/Highlime/Highlime.sublime-settings",
+                                        "default": "// Settings in here override those in \"Packages/Highlime/Highlime.sublime-settings\".\n{\n\t$0\n}\n"
+                                    },
+                                "caption": "Settings"
+                            },
+                            {
+                                "command": "edit_settings",
+                                "args":
+                                    {
+                                        "base_file": "${packages}/Highlime/Default ($platform).sublime-keymap",
+                                        "default": "[\n\t$0\n]\n"
+                                    },
+                                "caption": "Key Bindings"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
