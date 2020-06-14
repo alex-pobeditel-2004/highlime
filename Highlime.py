@@ -10,7 +10,7 @@ import threading
 import time
 
 PLUGIN_ACTIVATED = False
-CHANGES_TO_CLEAR = None
+CHANGES_TO_CLEAR = ''
 
 
 class HighlimePauseCommandListener(sublime_plugin.EventListener):
@@ -67,7 +67,7 @@ class HighlimeBaseCommand(sublime_plugin.WindowCommand):
             with open(self.new_scheme_abs_path, 'r', encoding='utf-8') as new_scheme:
                 global CHANGES_TO_CLEAR
                 if new_scheme.read() == '{}':
-                    CHANGES_TO_CLEAR = None
+                    CHANGES_TO_CLEAR = ''
                     return self.original_scheme_path
                 else:
                     CHANGES_TO_CLEAR = self.new_scheme_abs_path
@@ -114,7 +114,8 @@ class HighlimeResetCommand(HighlimeBaseCommand):
         else:
             return False
 
-    def run(self):
+    @staticmethod
+    def run():
         # Stopping the plugin if it was running:
         global CHANGES_TO_CLEAR
         global PLUGIN_ACTIVATED
@@ -127,7 +128,7 @@ class HighlimeResetCommand(HighlimeBaseCommand):
 
         print('Highlime stopped and reverted color scheme changes')
 
-        CHANGES_TO_CLEAR = None
+        CHANGES_TO_CLEAR = ''
 
 
 class HighlimeGetHighCommand(HighlimeBaseCommand):
@@ -296,14 +297,10 @@ def parse_color(initial_color):
             # Adding alpha channel if absent:
             if len(color_list) == 3:
                 color_list.append('ff')
-        # Get int numeric values of all channels:
+        # Get int numeric values of all channels (RGBA at the moment):
         color_list = [int(x, 16) for x in color_list]
 
-        # TODO Leave only RGBA or HSLA
-
-        # Converting to HSLA:
-        color_list_hsla = list(colorsys.rgb_to_hls(*[x / 255 for x in color_list[0:3]]))
-        color_list_hsla.append(color_list[-1] / 255)
+        color_list_hsla = get_hsla_from_rgb(color_list)
 
     # Functional rgb(a) notation:
     elif normalized_color.startswith('rgb'):
@@ -315,14 +312,10 @@ def parse_color(initial_color):
                 color_list.append(255)
             elif len(color_list) == 4:
                 color_list[3] = color_list[3] * 255
-        # Get int numeric values of all channels:
+        # Get int numeric values of all channels (RGBA at the moment):
         color_list = [int(x) for x in color_list]
 
-        # TODO Leave only RGBA or HSLA
-
-        # Converting to HSLA:
-        color_list_hsla = list(colorsys.rgb_to_hls(*[x / 255 for x in color_list[0:3]]))
-        color_list_hsla.append(color_list[-1] / 255)
+        color_list_hsla = get_hsla_from_rgb(color_list)
 
     # Functional hsl(a) notation:
     elif normalized_color.startswith('hsl'):
@@ -333,29 +326,45 @@ def parse_color(initial_color):
         # Transform result to rgb(a):
         rgb = colorsys.hls_to_rgb(hsl_values['h'] / 360, hsl_values['l'] / 100, hsl_values['s'] / 100)
         color_list.extend((int(x * 255) for x in rgb))
-        # Recalculate or create alpha channel:
+        # Recalculate or create alpha channel for RGB:
         if 'a' not in hsl_values:
             color_list.append(255)
         else:
             color_list.append(float(hsl_values['a']) * 255)
 
-        # TODO Leave only RGBA or HSLA
-
-        # Converting to HSLA:
-        color_list_hsla = list(colorsys.rgb_to_hls(*[x / 255 for x in color_list[0:3]]))
-        color_list_hsla.append(color_list[-1] / 255)
-
-    if len(color_list_hsla) != 4:
-        sublime.error_message('Cannot parse value {} from color scheme'.format(initial_color))
-        return []
+        # Save HSLA almost "as-is":
+        color_list_hsla = [
+            hsl_values['h'] / 360,
+            hsl_values['s'] / 100,
+            hsl_values['l'] / 100,
+            hsl_values.get('a', 1)
+        ]
     else:
-        return color_list_hsla
+        print('Cannot parse value {} from color scheme'.format(initial_color))
+        return []
+
+    return color_list_hsla
+
+
+def get_hsla_from_rgb(color_list):
+    """
+    Simple function for translation of RGBA to HSLA
+    :param color_list: 4-component list [R, G, B, A]
+    :return: List of colors in [H, S, L, A] format
+    """
+    # Converting to HSLA:
+    color_list_hsla = list(colorsys.rgb_to_hls(*[x / 255 for x in color_list[0:3]]))
+    color_list_hsla.append(color_list[-1] / 255)
+    # Swap Lightness/Saturation:
+    color_list_hsla[1], color_list_hsla[2] = color_list_hsla[2], color_list_hsla[1]
+
+    return color_list_hsla
 
 
 def iter_color(color, step):
     """
     Iterate through given color by the given step
-    :param color: 4-component list of HSLA
+    :param color: 4-component list [H, S, L, A]
     :param step: Step to iterate hue
     :return: Modified list
     """
@@ -372,4 +381,4 @@ def represent_hsla_as_function(color):
     :param color: HSLA parameters list
     :return: Color function string
     """
-    return 'hsla({0}, {1}%, {2}%, {3})'.format(color[0] * 360, int(color[2] * 100), int(color[1] * 100), color[3])
+    return 'hsla({0}, {1}%, {2}%, {3})'.format(color[0] * 360, int(color[1] * 100), int(color[2] * 100), color[3])
