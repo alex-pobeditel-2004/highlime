@@ -1,7 +1,8 @@
 # Highlime
 Make Sublime Text 3 even more high.
 
-Plugin which changes your current color scheme gradually in real time *(if time is real of course)*
+Plugin which changes your current color scheme gradually in real time *(if time is real of course)*  
+Demonstration video: https://www.youtube.com/watch?v=W5N5igIRits
 
 ## What you need to know before the trip
 * **Sublime Text build 3149 or later required** - only "new" `.sublime-color-scheme` format supported 
