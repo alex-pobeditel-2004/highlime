@@ -48,7 +48,7 @@ class HighlimeBaseCommand(sublime_plugin.WindowCommand):
         settings = sublime.load_settings('Preferences.sublime-settings')
 
         # Initialize scheme paths:
-        self.original_scheme_path = settings.get('color_scheme')
+        self.original_scheme_path = self.resolve_scheme_path(settings.get('color_scheme'))
         original_scheme_name = self.original_scheme_path.split('/')[-1]
         self.new_scheme_abs_path = os.path.join(sublime.packages_path(), 'User', original_scheme_name)
         self.new_scheme_rel_path = '/'.join(('Packages', 'User', original_scheme_name))
@@ -57,6 +57,21 @@ class HighlimeBaseCommand(sublime_plugin.WindowCommand):
         self.original_scheme_path = self.check_changes()
 
         return settings
+
+    @staticmethod
+    def resolve_scheme_path(scheme):
+        """
+        Sublime Text 4 stores the default color scheme as a bare file name (e.g. Mariana.sublime-color-scheme),
+        but load_resource needs a full resource path (Packages/<package>/<file>)
+        :param scheme: Value of the color_scheme setting
+        :return: Resource path to the color scheme (unchanged if it already is a path or cannot be resolved)
+        """
+        if not scheme or '/' in scheme:
+            return scheme
+
+        # Skipping our own override in the User package, it may be empty after reset:
+        found = [path for path in sublime.find_resources(scheme) if not path.startswith('Packages/User/')]
+        return found[0] if found else scheme
 
     def check_changes(self):
         """
@@ -245,6 +260,7 @@ class HighlimeGetHighCommand(HighlimeBaseCommand):
                 if not CHANGES_TO_CLEAR:
                     break
                 else:
+                    time.sleep(self.time_step)
                     continue
 
             result = dict()
